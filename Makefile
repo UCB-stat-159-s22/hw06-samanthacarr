@@ -10,8 +10,4 @@ Table_4.csv : Table_4.py
 
 all: barchart.png table3.csv Table_4.csv
 
-## clean       : Remove auto-generated files.
-.PHONY : clean
-clean :
-	rm -f figures/*.png
-	rm -f Tables/*.csv
+
