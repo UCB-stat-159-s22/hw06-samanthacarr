@@ -1,13 +1,24 @@
 
-barchart.png : barchart.py 
-	python barchart.py 
+env:
+	mamba env create -f environment.yml
+	conda activate ligo
+	python -m ipykernel install --user --name ligo --display-name "python2"
 
-table3.csv : MakeTable3.py 
-	python MakeTable3.py 
+html:
+	jupyter-book build .
 
-Table_4.csv : Table_4.py 
-	python Table_4.py 
 
-all: barchart.png table3.csv Table_4.csv
+html-hub:
+	jupyter-book config sphinx .
+	sphinx-build  . _build/html -D html_baseurl=${JUPYTERHUB_SERVICE_PREFIX}/proxy/absolute/8000
+	cd _build/html
+	python -m SimpleHTTPServer 8000
 
+
+.PHONY: clean
+clean:
+	rm -rf _build/html/
+	rm figures/*.png
+	rm audio/*.wav
+	rm data/GW150914_data.csv
 

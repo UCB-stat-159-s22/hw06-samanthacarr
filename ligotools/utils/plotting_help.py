@@ -12,7 +12,6 @@ from utils import *
 
 def plotting_help(fs, time, template_p, template_c, template_offset, strain_H1, strain_L1, dt, bb, ab, normalization, make_plots,strain_H1_whitenbp,eventname, plottype,tevent,strain_L1_whitenbp):
 
-
 	NFFT = 4*fs
 	psd_window = np.blackman(NFFT)
 	# and a 50% overlap:
@@ -167,3 +166,4 @@ def plotting_help(fs, time, template_p, template_c, template_offset, strain_H1, 
 			plt.legend(loc='upper left')
 			plt.title(det+' ASD and template around event')
 			plt.savefig('figures/'+eventname+"_"+det+"_matchfreq."+plottype)
+	return template_H1, template_L1
