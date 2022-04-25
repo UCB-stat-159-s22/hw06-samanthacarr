@@ -1,0 +1,135 @@
+Traceback (most recent call last):
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/jupyter_cache/executors/utils.py", line 51, in single_nb_execution
+    executenb(
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/nbclient/client.py", line 1093, in execute
+    return NotebookClient(nb=nb, resources=resources, km=km, **kwargs).execute()
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/nbclient/util.py", line 84, in wrapped
+    return just_run(coro(*args, **kwargs))
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/nbclient/util.py", line 62, in just_run
+    return loop.run_until_complete(coro)
+  File "/srv/conda/envs/notebook/lib/python3.9/asyncio/base_events.py", line 642, in run_until_complete
+    return future.result()
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/nbclient/client.py", line 559, in async_execute
+    await self.async_execute_cell(
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/nbclient/client.py", line 854, in async_execute_cell
+    self._check_raise_for_error(cell, exec_reply)
+  File "/srv/conda/envs/notebook/lib/python3.9/site-packages/nbclient/client.py", line 756, in _check_raise_for_error
+    raise CellExecutionError.from_cell_and_msg(cell, exec_reply_content)
+nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
+------------------
+# extract metadata from the template file:
+template_p, template_c = f_template["template"][...]
+t_m1 = f_template["/meta"].attrs['m1']
+t_m2 = f_template["/meta"].attrs['m2']
+t_a1 = f_template["/meta"].attrs['a1']
+t_a2 = f_template["/meta"].attrs['a2']
+t_approx = f_template["/meta"].attrs['approx']
+f_template.close()
+# the template extends to roughly 16s, zero-padded to the 32s data length. The merger will be roughly 16s in.
+template_offset = 16.
+
+# whiten the templates:
+template_p_whiten = whiten(template_p,psd_H1,dt)
+template_c_whiten = whiten(template_c,psd_H1,dt)
+template_p_whitenbp = filtfilt(bb, ab, template_p_whiten) / normalization
+template_c_whitenbp = filtfilt(bb, ab, template_c_whiten) / normalization
+
+# Compute, print and plot some properties of the template:
+
+# constants:
+clight = 2.99792458e8                # m/s
+G = 6.67259e-11                      # m^3/kg/s^2 
+MSol = 1.989e30                      # kg
+
+# template parameters: masses in units of MSol:
+t_mtot = t_m1+t_m2
+# final BH mass is typically 95% of the total initial mass:
+t_mfin = t_mtot*0.95
+# Final BH radius, in km:
+R_fin = 2*G*t_mfin*MSol/clight**2/1000.
+
+# complex template:
+template = (template_p + template_c*1.j) 
+ttime = time-time[0]-template_offset
+
+# compute the instantaneous frequency of this chirp-like signal:
+tphase = np.unwrap(np.angle(template))
+fGW = np.gradient(tphase)*fs/(2.*np.pi)
+# fix discontinuities at the very end:
+# iffix = np.where(np.abs(np.gradient(fGW)) > 100.)[0]
+iffix = np.where(np.abs(template) < np.abs(template).max()*0.001)[0]
+fGW[iffix] = fGW[iffix[0]-1]
+fGW[np.where(fGW < 1.)] = fGW[iffix[0]-1]
+
+# compute v/c:
+voverc = (G*t_mtot*MSol*np.pi*fGW/clight**3)**(1./3.)
+
+# index where f_GW is in-band:
+f_inband = fband[0]
+iband = np.where(fGW > f_inband)[0][0]
+# index at the peak of the waveform:
+ipeak = np.argmax(np.abs(template))
+
+# number of cycles between inband and peak:
+Ncycles = (tphase[ipeak]-tphase[iband])/(2.*np.pi)
+
+print('Properties of waveform template in {0}'.format(fn_template))
+print("Waveform family = {0}".format(t_approx))
+print("Masses = {0:.2f}, {1:.2f} Msun".format(t_m1,t_m2))
+print('Mtot = {0:.2f} Msun, mfinal = {1:.2f} Msun '.format(t_mtot,t_mfin))
+print("Spins = {0:.2f}, {1:.2f}".format(t_a1,t_a2))
+print('Freq at inband, peak = {0:.2f}, {1:.2f} Hz'.format(fGW[iband],fGW[ipeak]))
+print('Time at inband, peak = {0:.2f}, {1:.2f} s'.format(ttime[iband],ttime[ipeak]))
+print('Duration (s) inband-peak = {0:.2f} s'.format(ttime[ipeak]-ttime[iband]))
+print('N_cycles inband-peak = {0:.0f}'.format(Ncycles))
+print('v/c at peak = {0:.2f}'.format(voverc[ipeak]))
+print('Radius of final BH = {0:.0f} km'.format(R_fin))
+
+if make_plots:
+    plt.figure(figsize=(10,16))
+    plt.subplot(4,1,1)
+    plt.plot(ttime,template_p)
+    plt.xlim([-template_offset,1.])
+    plt.grid()
+    plt.xlabel('time (s)')
+    plt.ylabel('strain')
+    plt.title(eventname+' template at D_eff = 1 Mpc')
+    
+    plt.subplot(4,1,2)
+    plt.plot(ttime,template_p)
+    plt.xlim([-1.1,0.1])
+    plt.grid()
+    plt.xlabel('time (s)')
+    plt.ylabel('strain')
+    #plt.title(eventname+' template at D_eff = 1 Mpc')
+    
+    plt.subplot(4,1,3)
+    plt.plot(ttime,fGW)
+    plt.xlim([-1.1,0.1])
+    plt.grid()
+    plt.xlabel('time (s)')
+    plt.ylabel('f_GW')
+    #plt.title(eventname+' template f_GW')
+    
+    plt.subplot(4,1,4)
+    plt.plot(ttime,voverc)
+    plt.xlim([-1.1,0.1])
+    plt.grid()
+    plt.xlabel('time (s)')
+    plt.ylabel('v/c')
+    #plt.title(eventname+' template v/c')
+    plt.savefig('figures/'+eventname+'_template.'+plottype)
+------------------
+
+[0;31m---------------------------------------------------------------------------[0m
+[0;31mNameError[0m                                 Traceback (most recent call last)
+[0;32m<ipython-input-14-7905ecdc1c2c>[0m in [0;36m<module>[0;34m()[0m
+[1;32m      1[0m [0;31m# extract metadata from the template file:[0m[0;34m[0m[0;34m[0m[0m
+[0;32m----> 2[0;31m [0mtemplate_p[0m[0;34m,[0m [0mtemplate_c[0m [0;34m=[0m [0mf_template[0m[0;34m[[0m[0;34m"template"[0m[0;34m][0m[0;34m[[0m[0;34m.[0m[0;34m.[0m[0;34m.[0m[0;34m][0m[0;34m[0m[0m
+[0m[1;32m      3[0m [0mt_m1[0m [0;34m=[0m [0mf_template[0m[0;34m[[0m[0;34m"/meta"[0m[0;34m][0m[0;34m.[0m[0mattrs[0m[0;34m[[0m[0;34m'm1'[0m[0;34m][0m[0;34m[0m[0m
+[1;32m      4[0m [0mt_m2[0m [0;34m=[0m [0mf_template[0m[0;34m[[0m[0;34m"/meta"[0m[0;34m][0m[0;34m.[0m[0mattrs[0m[0;34m[[0m[0;34m'm2'[0m[0;34m][0m[0;34m[0m[0m
+[1;32m      5[0m [0mt_a1[0m [0;34m=[0m [0mf_template[0m[0;34m[[0m[0;34m"/meta"[0m[0;34m][0m[0;34m.[0m[0mattrs[0m[0;34m[[0m[0;34m'a1'[0m[0;34m][0m[0;34m[0m[0m
+
+[0;31mNameError[0m: name 'f_template' is not defined
+NameError: name 'f_template' is not defined
+
